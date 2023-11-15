@@ -1,48 +1,69 @@
-const express = require('express');
-const mysql = require('mysql2');
-const bodyParser = require('body-parser');
+const express = require("express");
+const mysql = require("mysql2");
+const bodyParser = require("body-parser");
 
 const app = express();
-const port = 3000;
+const port = process.env.port || 3000;
 
 app.use(bodyParser.json());
 
 const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'your_username',
-  password: 'your_password',
-  database: 'your_database',
+  host: "localhost",
+  user: "root",
+  password: "",
+  database: "db_zencommentary",
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
 });
 
-app.post('/api/saveData', (req, res) => {
+app.post("/send-data", async (req, res) => {
   try {
-    const data = req.body;
+    const data = {
+      // id: req.body.id,
+      comment: req.body.comment,
+    };
 
-    pool.getConnection((err, connection) => {
-      if (err) {
-        console.error('Error getting MySQL connection:', err);
-        res.status(500).json({ message: 'Internal server error' });
-        return;
-      }
+    const connection = await pool.promise().getConnection();
 
-      connection.query('INSERT INTO your_table SET ?', data, (error, results) => {
-        connection.release();
+    // Insert data into the database
+    const [results, fields] = await connection.query(
+      "INSERT INTO comments SET ?",
+      data
+    );
 
-        if (error) {
-          console.error('Error inserting data into MySQL:', error);
-          res.status(500).json({ message: 'Internal server error' });
-          return;
-        }
+    // Get the inserted data
+    const [insertedData] = await connection.query(
+      "SELECT * FROM comments WHERE id = ?",
+      results.insertId
+    );
 
-        res.status(200).json({ message: 'Data saved successfully' });
-      });
+    connection.release();
+
+    res.status(200).json({
+      message: "Data saved successfully",
+      insertedData: insertedData[0],
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error processing request:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+app.get("/get-data", async (req, res) => {
+  try {
+    const connection = await pool.promise().getConnection();
+
+    const [dataRows] = await connection.query("SELECT * FROM comments");
+
+    connection.release();
+
+    res.status(200).json({
+      message: "Data received successfully",
+      data: dataRows,
+    });
+  } catch (error) {
+    console.error("Error processing request:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
