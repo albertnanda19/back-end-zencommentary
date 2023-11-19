@@ -19,7 +19,8 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-// Endpoint untuk mengirim data ke Flask
+// Endpoint untuk mengirim data ke Flask dan mendapatkan data terakhir dari database
+// Endpoint untuk mengirim data ke Flask dan mendapatkan data terakhir dari database
 app.post("/submit-comment", async (req, res) => {
   try {
     const data = {
@@ -48,17 +49,16 @@ app.post("/submit-comment", async (req, res) => {
           { comment: data.comment, kategori: sentimentPrediction }
         );
 
-        // Get the inserted data
-        const [insertedData] = await connection.query(
-          "SELECT * FROM comments WHERE id = ?",
-          results.insertId
+        // Get the latest comment from the database
+        const [latestComment] = await connection.query(
+          "SELECT * FROM comments ORDER BY id DESC LIMIT 1"
         );
 
         connection.release();
 
         res.status(200).json({
           message: "Data saved successfully",
-          insertedData: insertedData[0],
+          response: latestComment[0],
         });
       } else {
         console.error("Empty predictions from Flask:", predictions);
@@ -71,46 +71,6 @@ app.post("/submit-comment", async (req, res) => {
       );
       res.status(500).json({ message: "Internal server error" });
     }
-  } catch (error) {
-    console.error("Error processing request:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// Endpoint untuk mendapatkan data dari database
-app.get("/get-datas", async (req, res) => {
-  try {
-    const connection = await pool.promise().getConnection();
-
-    const [dataRows] = await connection.query("SELECT * FROM comments");
-
-    connection.release();
-
-    res.status(200).json({
-      message: "Data received successfully",
-      data: dataRows,
-    });
-  } catch (error) {
-    console.error("Error processing request:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-app.get("/get-latest-comment", async (req, res) => {
-  try {
-    const connection = await pool.promise().getConnection();
-
-    // Get the latest comment from the database
-    const [latestComment] = await connection.query(
-      "SELECT * FROM comments ORDER BY id DESC LIMIT 1"
-    );
-
-    connection.release();
-
-    res.status(200).json({
-      message: "Latest comment received successfully",
-      data: latestComment[0],
-    });
   } catch (error) {
     console.error("Error processing request:", error);
     res.status(500).json({ message: "Internal server error" });
