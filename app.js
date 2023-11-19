@@ -19,37 +19,30 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-// Endpoint untuk mengirim data ke Flask dan mendapatkan data terakhir dari database
-// Endpoint untuk mengirim data ke Flask dan mendapatkan data terakhir dari database
 app.post("/submit-comment", async (req, res) => {
   try {
     const data = {
       comment: req.body.comment,
     };
 
-    // Kirim data komentar ke backend Flask
     const responseFromFlask = await axios.post(
       "http://127.0.0.1:5000/predict",
       { comments: [data.comment] }
     );
 
-    // Pemeriksaan apakah responseFromFlask.data dan responseFromFlask.data.predictions didefinisikan
     if (responseFromFlask.data && responseFromFlask.data.predictions) {
       const predictions = responseFromFlask.data.predictions;
 
-      // Pemeriksaan apakah predictions memiliki elemen ke-0
       if (predictions.length > 0) {
         const sentimentPrediction = predictions[0];
 
         const connection = await pool.promise().getConnection();
 
-        // Insert data into the database
         const [results, fields] = await connection.query(
           "INSERT INTO comments SET ?",
           { comment: data.comment, kategori: sentimentPrediction }
         );
 
-        // Get the latest comment from the database
         const [latestComment] = await connection.query(
           "SELECT * FROM comments ORDER BY id DESC LIMIT 1"
         );
